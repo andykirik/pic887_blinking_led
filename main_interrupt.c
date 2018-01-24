@@ -73,16 +73,16 @@ void system_init()
     /* 
      * -------------------INTCON----------------------------
      * Bit#:  ----7----6----5----4----3----2----1----0------
-     *        --|GIE|PEIE|T0IE|INTE|RABIE|T0IF|INTF|RABIF|--
+     *        --|GIE|PEIE|T0IE|INTE|RBIE|T0IF|INTF|RBIF|--
      * -----------------------------------------------------
      * GIE      - global interrupt enable bit
      * PEIE     - peripheral interrupt enable bit
      * T0IE     - Timer 0 overflow interrupt enable bit
      * INTE     - external interrupt enable bit
-     * RABIE    - port change interrupt enable bit
+     * RBIE     - port B change interrupt enable bit
      * T0IF     - Timer 0 overflow interrupt flag bit
      * INTF     - external interrupt flag bit
-     * RABIF    - port change interrupt flag bit
+     * RBIF     - port B change interrupt flag bit
      * 
      * -------------------OPTION_REG----------------------
      * Bit#:  ----7------6-----5----4----3---2---1---0----
@@ -92,6 +92,8 @@ void system_init()
      * 
     */
         OPTION_REGbits.INTEDG = 1;  // Interrupt on the rising edge
+        INTCONbits.RBIE = 0;        // Reset the external interrupt flag
+		INTCONbits.RBIF = 1;        // Enable external interrupt
         INTCONbits.INTF = 0;        // Reset the external interrupt flag
 		INTCONbits.INTE = 1;        // Enable external interrupt
 		INTCONbits.GIE = 1;         // Set the Global Interrupt Enable
