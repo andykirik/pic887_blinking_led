@@ -21,7 +21,7 @@ There is also __delay_us() for microseconds and _delay() to delay for a specific
 Note that __delay_ms() and __delay_us() begin with a double underscore whereas _delay() 
 begins with a single underscore.
 */
-#define _XTAL_FREQ 4000000
+#define _XTAL_FREQ 8000000
 
 // PIC16F887 Configuration Bit Settings
 // 'C' source line config statements
@@ -116,7 +116,7 @@ void system_init()
 }
 
 /* 
- * The PIC16F690 can only have one Interrupt Service Routine. 
+ * The PIC16F887 can only have one Interrupt Service Routine. 
  * Compiler should know which function is the interrupt handler. 
  * This is done by declaring the function with 'interrupt' prefix:
  */
@@ -135,7 +135,7 @@ void interrupt isr()
     {
         delayTime = 0;
 #endif
-        PORTCbits.RC3 = ~PORTCbits.RC3; // Toggle the LED
+        PORTDbits.RD3 = ~PORTDbits.RD3; // Toggle the LED
 #ifdef EXTENDED_DELAY    
     }
 #endif
@@ -147,7 +147,7 @@ void main(void)
     
     while(1)
     {        
-        PORTCbits.RC0 = ~PORTCbits.RC0;	// Toggle the LED
+        PORTDbits.RD0 = ~PORTDbits.RD0;	// Toggle the LED
         __delay_ms(1000);   			// sleep 1 seconds
 
     }

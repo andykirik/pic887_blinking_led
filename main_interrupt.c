@@ -98,7 +98,7 @@ void system_init()
 }
 
 /* 
- * The PIC16F690 can only have one Interrupt Service Routine. 
+ * The PIC16F887 can only have one Interrupt Service Routine. 
  * Compiler should know which function is the interrupt handler. 
  * This is done by declaring the function with 'interrupt' prefix:
  */
@@ -108,7 +108,7 @@ void interrupt isr()
     {
         INTCONbits.INTF = 0;    // Clear the Timer 0 interrupt flag
 
-        PORTCbits.RC3 = ~PORTCbits.RC3; // Toggle the LED
+        PORTDbits.RD3 = ~PORTDbits.RD3; // Toggle the LED
     }
     //else if(...)
 }
@@ -119,7 +119,7 @@ void main(void)
     
     while(1)
     {        
-        PORTCbits.RC0 = ~PORTCbits.RC0;	// Toggle the LED
+        PORTDbits.RD7 = ~PORTDbits.RD7;	// Toggle the LED
         __delay_ms(1000);   			// sleep 1 seconds
 
     }

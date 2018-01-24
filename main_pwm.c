@@ -76,9 +76,9 @@ void system_init()
             PORTE = 0x00;         // Set PORTE all 0
             
     // ADC setup
-        ADCON0bits.ADFM = 1;   		// ADC result is right justified
-        ADCON0bits.VCFG = 0;    	// Vref uses Vdd as reference
-        ADCON1bits.ADCS = 0b001;	// Fosc/8 is the conversion clock
+        ADCON1bits.ADFM = 1;   		// ADC result is right justified
+        ADCON1bits.VCFG0 = 0;    	// Vref uses Vdd as reference
+        ADCON0bits.ADCS0 = 0;       // Fosc/8 is the conversion clock
 									//   This is selected because the conversion
 									//   clock period (Tad) must be greater than 1.5us.
 									//   With a Fosc of 4MHz, Fosc/8 results in a Tad

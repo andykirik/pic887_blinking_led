@@ -90,7 +90,7 @@ void main(void)
     {        
         while(INTCONbits.T0IF == 0); // Wait for the interrupt to occur. This happens when the TMR0 register rolls over.
 
-        PORTCbits.RC0 = ~PORTCbits.RC0; // Toggle the LED
+        PORTDbits.RD0 = ~PORTDbits.RD0; // Toggle the LED
 		
         INTCONbits.T0IF = 0;        // Clear the Timer 0 interrupt flag
         TMR0 = 0;                   // Load a value of 0 into the timer

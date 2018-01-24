@@ -78,11 +78,11 @@ void system_init()
             PORTE = 0x00;         // Set PORTE all 0
         
     // ADC setup
-	// The PIC16F690 has a 10-bit ADC
+	// The PIC16F887 has a 10-bit ADC
 	// It provides value 0 to 1023 as the input voltage rises from Vss to Vref
 	// Vref is the analog reference voltage. 
 	// It can either be Vdd or supplied externally to the RA1/AN1/Vref pin
-	// The PIC16F690 has twelve analog input pins (AN0 through AN11). 
+	// The PIC16F887 has twelve analog input pins (AN0 through AN11). 
 	// In order to enable the analog function for a pin, 
 	// the corresponding bit must be set in the ANSEL or ANSELH register (see above).
     // Steps to configure:
@@ -95,25 +95,16 @@ void system_init()
     //  6. clear ADIF bit
     //  7. set ADIE, PEIE and GIE bits (see interrupts for more instructions)
     /* 
-     * -------------------ADC---------------------------------
+     * -------------------ADCON0------------------------------
      * Bit#:  ----7----6----5----4----3----2----1-------0-----
-     * ANS:   --|ADFM|VCFG|CHS3|CHS2|CHS1|CHS0|GO/DONE|ADON|--
+     * ANS:   --|ADCS1|ADCS0|CHS3|CHS2|CHS1|CHS0|GO/DONE|ADON|--
      * -------------------------------------------------------
-        ADFM - result format: 0 - left justified (default), 1 - right justified:
-            * -------------------------ADRESH------------------------|-------------------ADRESL-----------------------
-            * Bit#:  ---7-----6-----5-----4-----3-----2-----1-----0--|--7-----6-----5-----4-----3-----2-----1-----0---
-            * bit:   |  0  |  0  |  0  |  0  |  0  |  0  |bit-9|bit-8|bit-7|bit-6|bit-5|bit-4|bit-3|bit-2|bit-1|bit-0|
-            * --------------------------------------------------------------------------------------------------------
-            result = (ADRESH<<8)+ADRESL;
-
-            * -------------------------ADRESH------------------------|-------------------ADRESL-----------------------
-            * Bit#:  ---7-----6-----5-----4-----3-----2-----1-----0--|--7-----6-----5-----4-----3-----2-----1-----0---
-            * bit:   |bit-9|bit-8|bit-7|bit-6|bit-5|bit-4|bit-3|bit-2|bit-1|bit-0|  0  |  0  |  0  |  0  |  0  |  0  |
-            * --------------------------------------------------------------------------------------------------------
-            This is useful if only the 8 most significant bits are required. 
-            In this case, we just simply copy the contens of the ADRESH register.
       
-        VCFG - Voltage reference (Vref): 0 - Vdd, 1 - Vref pin     
+        ADCS<1:0>: A/D Conversion Clock Select bits
+            00 = FOSC/2
+            01 = FOSC/8
+            10 = FOSC/32
+            11 = FRC (clock derived from a dedicated internal oscillator = 500 kHz max)     
       
         CHS<3:0> - channel select: This selects which voltage is fed into the ADC. 
             Setting this 0 to 11 selects AN0 to AN11 respectively. 
@@ -131,16 +122,28 @@ void system_init()
      
      * -------------------ADCON1-------------------------
      * Bit#:  ----7----6-----5-----4----3---2---1---0----
-     * ANS:   --| 0 |ADCS2|ADCS1|ADCS0| 0 | 0 | 0 | 0 |--
+     * ANS:   --|ADFM| 0  |VCFG1|VCFG0| 0 | 0 | 0 | 0 |--
      * --------------------------------------------------
-        ADCS<2:0> - ADC clock select:
-            0b000 = Fosc/2
-            0b001 = Fosc/8
-            0b010 = Fosc/32
-            0b011 or 0b111 = FRC (internal oscillator)
-            0b100 = Fosc/4
-            0b101 = Fosc/16
-            0b110 = Fosc/64
+     ADFM - result format: 0 - left justified (default), 1 - right justified:
+            * -------------------------ADRESH------------------------|-------------------ADRESL-----------------------
+            * Bit#:  ---7-----6-----5-----4-----3-----2-----1-----0--|--7-----6-----5-----4-----3-----2-----1-----0---
+            * bit:   |  0  |  0  |  0  |  0  |  0  |  0  |bit-9|bit-8|bit-7|bit-6|bit-5|bit-4|bit-3|bit-2|bit-1|bit-0|
+            * --------------------------------------------------------------------------------------------------------
+            result = (ADRESH<<8)+ADRESL;
+
+            * -------------------------ADRESH------------------------|-------------------ADRESL-----------------------
+            * Bit#:  ---7-----6-----5-----4-----3-----2-----1-----0--|--7-----6-----5-----4-----3-----2-----1-----0---
+            * bit:   |bit-9|bit-8|bit-7|bit-6|bit-5|bit-4|bit-3|bit-2|bit-1|bit-0|  0  |  0  |  0  |  0  |  0  |  0  |
+            * --------------------------------------------------------------------------------------------------------
+            This is useful if only the 8 most significant bits are required. 
+            In this case, we just simply copy the contens of the ADRESH register.
+ 
+     VCFG1: Voltage Reference bit
+        1 = VREF - pin
+        0 = VSS
+     VCFG0: Voltage Reference bit
+        1 = VREF + pin
+        0 = VDD 
           
      ADC could be user with interrupts
         In order to use the ADC interrupts, the GIE (Global Interrupt Enable) 
@@ -162,9 +165,9 @@ void system_init()
                This must be cleared by software in the interrupt service routine 
                to prepare the interrupt flag for the next conversion.
     */
-        ADCON0bits.ADFM = 1;   		// ADC result is right justified
-        ADCON0bits.VCFG = 0;    	// Vref uses Vdd as reference
-        ADCON1bits.ADCS = 0b001;	// Fosc/8 is the conversion clock
+        ADCON1bits.ADFM = 1;   		// ADC result is right justified
+        ADCON1bits.VCFG0 = 0;    	// Vref uses Vdd as reference
+        ADCON0bits.ADCS0 = 0;       // Fosc/8 is the conversion clock
 									//   This is selected because the conversion
 									//   clock period (Tad) must be greater than 1.5us.
 									//   With a Fosc of 4MHz, Fosc/8 results in a Tad
@@ -193,22 +196,22 @@ void main(void)
         //PORTCbits.RC0 = adcResult > 512 ? 1 : 0;// Turn on the LED if the input voltage is above Vdd/2
 		//__delay_ms(50);                         // sleep 50 milliseconds
 		
-		PORTCbits.RC0 = 0;
-        PORTCbits.RC1 = 0;
-        PORTCbits.RC2 = 0;
-        PORTCbits.RC3 = 0;
+		PORTDbits.RD0 = 0;
+        PORTDbits.RD1 = 0;
+        PORTDbits.RD2 = 0;
+        PORTDbits.RD3 = 0;
 		
         if(adcResult > 256) {
-            PORTCbits.RC0 = 1;
+            PORTDbits.RD0 = 1;
         } 
         if(adcResult > 512)  {
-            PORTCbits.RC1 = 1;
+            PORTDbits.RD1 = 1;
         } 
         if(adcResult > 768)  {
-            PORTCbits.RC2 = 1;
+            PORTDbits.RD2 = 1;
         }
         if(adcResult > 1000)  {
-            PORTCbits.RC3 = 1;      
+            PORTDbits.RD3 = 1;      
         }
 		__delay_ms(50);                         // sleep 50 milliseconds
     }
