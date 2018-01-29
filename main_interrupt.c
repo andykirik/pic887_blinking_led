@@ -18,7 +18,6 @@
 
 /* The __delay_ms() function is provided by XC8. 
 It requires you define _XTAL_FREQ as the frequency of your system clock. 
-We are using the internal oscillator at its default 4MHz, so _XTAL_FREQ is defined as 4000000. 
 The compiler then uses that value to calculate how many cycles are required to give the requested delay. 
 There is also __delay_us() for microseconds and _delay() to delay for a specific number of clock cycles. 
 Note that __delay_ms() and __delay_us() begin with a double underscore whereas _delay() 
@@ -57,7 +56,7 @@ void system_init()
 	  
 		// TRISx registers (This register specifies the data direction of each pin)
 			TRISA = 0x00;         // Set All on PORTB as Output
-			TRISB = 0x00;         // Set All on PORTB as Output    
+			TRISB = 0xFF;         // Set All on PORTB as Input    
 			TRISC = 0x00;         // Set All on PORTC as Output    
             TRISD = 0x00;         // Set All on PORTD as Output   
             TRISE = 0x00;         // Set All on PORTE as Output   
@@ -92,8 +91,6 @@ void system_init()
      * 
     */
         OPTION_REGbits.INTEDG = 1;  // Interrupt on the rising edge
-        INTCONbits.RBIE = 0;        // Reset the external interrupt flag
-		INTCONbits.RBIF = 1;        // Enable external interrupt
         INTCONbits.INTF = 0;        // Reset the external interrupt flag
 		INTCONbits.INTE = 1;        // Enable external interrupt
 		INTCONbits.GIE = 1;         // Set the Global Interrupt Enable

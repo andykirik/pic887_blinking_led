@@ -4,7 +4,8 @@
  *
  * Created on January 24, 2016, 12:12 PM
  * 
- * Using timer with interrupt
+ * Using Timer 0 with interrupt
+ * (Note, Watch Dog Timer should be disabled)
  * 
  *  Board connection (PICKit 44-Pin Demo Board; PIC16F887):
  *   PIN                	Module                         				  
@@ -15,13 +16,12 @@
 
 /* The __delay_ms() function is provided by XC8. 
 It requires you define _XTAL_FREQ as the frequency of your system clock. 
-We are using the internal oscillator at its default 4MHz, so _XTAL_FREQ is defined as 4000000. 
 The compiler then uses that value to calculate how many cycles are required to give the requested delay. 
 There is also __delay_us() for microseconds and _delay() to delay for a specific number of clock cycles. 
 Note that __delay_ms() and __delay_us() begin with a double underscore whereas _delay() 
 begins with a single underscore.
 */
-#define _XTAL_FREQ 8000000
+#define _XTAL_FREQ 250000
 
 // PIC16F887 Configuration Bit Settings
 // 'C' source line config statements
@@ -46,24 +46,27 @@ begins with a single underscore.
 #define EXTENDED_DELAY
 
 #ifdef EXTENDED_DELAY
-#define TIMER_RESET_VALUE 6 // To set up the timer for a period of 1 ms (timerPeriod)
+#define TIMER_RESET_VALUE 241 // To set up the timer for a period of 1 ms (timerPeriod)
                             // Calculated by the formula:
                             // TMR0 = 256 - ((timerPeriod * Fosc) / (4 * prescaler)) + x
                             // TMR1 = 65536 - ((timerPeriod * Fosc) / (4 * prescaler)) + x
 
                             // In following case,   timerPeriod = 0.001s
-                            //                      Fosc = 4,000,000
+                            //                      Fosc = 250,000
                             //                      prescaler = 4
                             //                      x = 0 because prescaler is > 2
 
-                            // TMR0 = 256 - (0.001 * 4000000) / (4 * 4) = 6
+                            // TMR0 = 256 - (0.001 * 250000) / (4 * 4) = 241
 
 int delayTime = 0;          // store the time that has elapsed
+#else
+#define TIMER_RESET_VALUE 0
 #endif
 
 void system_init()
 {
-    OSCCON=0x70;          // Select 8 Mhz internal clock
+    //OSCCON=0x70;          // Select 8 Mhz internal clock
+    OSCCON=0b0100000;       // Select 250 kHz internal clock
     
 	// I/O	
 		// ANSELx registers
@@ -85,30 +88,52 @@ void system_init()
             PORTE = 0x00;         // Set PORTE all 0
         
 	// Timer Setup - Timer 0
-    /* A prescaler is a circuit that reduces the frequency of a clock using integer division. 
+    /* 
+	 * -------------------OPTION_REG-------------------------
+     * Bit#:  ---7------6------5------4-----3---2---1---0----
+     * :      -|WPUEN|INTEDG|TMR0CS|TMR0SE|PSA|PS2|PS1|PS0|--
+     * ------------------------------------------------------
+        WPUEN: Weak Pull-Up Enable bit
+            1 = All weak pull-ups are disabled (except MCLR, if it is enabled)
+            0 = Weak pull-ups are enabled by individual WPUx latch values
+        INTEDG: Interrupt Edge Select bit
+            1 = Interrupt on rising edge of INT pin
+            0 = Interrupt on falling edge of INT pin
+        TMR0CS: Timer0 Clock Source Select bit
+            1 = Transition on T0CKI pin
+            0 = Internal instruction cycle clock (FOSC/4)
+        TMR0SE: Timer0 Source Edge Select bit
+            1 = Increment on high-to-low transition on T0CKI pin
+            0 = Increment on low-to-high transition on T0CKI pin
+        PSA: Prescaler Assignment bit
+            1 = Prescaler is not assigned to the Timer0 module
+            0 = Prescaler is assigned to the Timer0 module
+        PS<2:0>: Prescaler Rate Select bits
+            000     1 : 2
+            001     1 : 4
+            010     1 : 8
+            011     1 : 16
+            100     1 : 32
+            101     1 : 64
+            110     1 : 128
+            111     1 : 256
+
+     * A prescaler is a circuit that reduces the frequency of a clock using integer division. 
      *  The prescaler can be set anywhere from 1:2 to 1:256 for Timer 0.
-     *  The clock we are slowing down is NOT the system clock Fosc (4MHz as in here). 
+     *  The clock we are slowing down is NOT the system clock Fosc (250 kHz as in here). 
      *  It's the system's instruction clock Fcy, which is always Fosc/4.
      *  The timer expires when the TMR0 register rolls over. 
      *  The TMR0 register is an 8bit register, therefore it will roll over after 256 counts.
      *  Rollover Frequency = Fosc / (4 * prescaler * 256)
-     *  In following case it would be 15.2588Hz or 0.0655 seconds per rollover.
+     *  In following case it would be 0.95 Hz or 1.04 seconds per rollover.
     */
 		OPTION_REGbits.PSA = 0; 	// Prescaler assigned to Timer 0 
-#ifdef EXTENDED_DELAY
         OPTION_REGbits.PS = 0b001;  // Set the prescaler to 1:4
-#else
-		OPTION_REGbits.PS = 0b111;  // Set the prescaler to 1:256
-#endif
 		OPTION_REGbits.T0CS = 0;    // Use the instruction clock (Fcy/4) as the timer clock. 
 									//   Other option is an external oscillator or clock on the T0CKI pin.
         INTCONbits.T0IE = 1;        // Enable the Timer 0 interrupt
 		INTCONbits.T0IF = 0;        // Clear the Timer 0 interrupt flag
-#ifdef EXTENDED_DELAY
 		TMR0 = TIMER_RESET_VALUE;   // Load the starting value back into the timer
-#else
-        TMR0 = 0;                   // Load a value of 0 into the timer
-#endif
 
 	// Interrupt setup
 		INTCONbits.T0IE = 1;        // Enable the Timer 0 interrupt
@@ -123,12 +148,7 @@ void system_init()
 void interrupt isr()
 {
     INTCONbits.T0IF = 0;    // Clear the Timer 0 interrupt flag
-#ifdef EXTENDED_DELAY
     TMR0 = TIMER_RESET_VALUE;   // Load the starting value back into the timer
-#else
-    TMR0 = 0;               // Load a value of 0 into the timer
-                            //   This is actually not necessary since the register will be at 0 anyway after rolling over
-#endif
     
 #ifdef EXTENDED_DELAY
     if(++delayTime >= 5000) // 5 seconds has elapsed

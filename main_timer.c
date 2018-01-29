@@ -4,7 +4,8 @@
  *
  * Created on January 24, 2016, 12:12 PM
  * 
- * Using timers
+ * Using Timer 0
+ * (Note, Watch Dog Timer should be disabled)
  * 
  *  Board connection (PICKit 44-Pin Demo Board; PIC16F887):
  *   PIN                	Module                         				  
@@ -13,21 +14,11 @@
  * 
  */
 
-/* The __delay_ms() function is provided by XC8. 
-It requires you define _XTAL_FREQ as the frequency of your system clock. 
-We are using the internal oscillator at its default 4MHz, so _XTAL_FREQ is defined as 4000000. 
-The compiler then uses that value to calculate how many cycles are required to give the requested delay. 
-There is also __delay_us() for microseconds and _delay() to delay for a specific number of clock cycles. 
-Note that __delay_ms() and __delay_us() begin with a double underscore whereas _delay() 
-begins with a single underscore.
-*/
-#define _XTAL_FREQ 8000000
-
 // PIC16F887 Configuration Bit Settings
 // 'C' source line config statements
 // CONFIG1
 #pragma config FOSC = INTRC_NOCLKOUT// Oscillator Selection bits (INTOSCIO oscillator: I/O function on RA6/OSC2/CLKOUT pin, I/O function on RA7/OSC1/CLKIN)
-#pragma config WDTE = OFF       // Watchdog Timer Enable bit (WDT disabled and can be enabled by SWDTEN bit of the WDTCON register)
+#pragma config WDTE = OFF       //!!! Watchdog Timer Enable bit (WDT disabled and can be enabled by SWDTEN bit of the WDTCON register)
 #pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
 #pragma config MCLRE = ON       // RE3/MCLR pin function select bit (RE3/MCLR pin function is MCLR)
 #pragma config CP = OFF         // Code Protection bit (Program memory code protection is disabled)
@@ -45,7 +36,9 @@ begins with a single underscore.
 
 void system_init()
 {
-    OSCCON=0x70;          // Select 8 Mhz internal clock
+    //OSCCON=0b1110000;          // Select 8 MHz internal clock
+    OSCCON=0b0100000;          // Select 250 kHz internal clock
+    //OSCCON=0b0000000;          // Select 31 kHz internal clock
     
 	// I/O	
 		// ANSELx registers
@@ -67,19 +60,48 @@ void system_init()
             PORTE = 0x00;         // Set PORTE all 0
         
 	// Timer Setup - Timer 0
-    /* A prescaler is a circuit that reduces the frequency of a clock using integer division. 
-     *  The prescaler can be set anywhere from 1:2 to 1:256 for Timer 0.
-     *  The clock we are slowing down is NOT the system clock Fosc (4MHz as in here). 
+    /* 
+	 * -------------------OPTION_REG-------------------------
+     * Bit#:  ---7------6------5------4-----3---2---1---0----
+     * :      -|WPUEN|INTEDG|TMR0CS|TMR0SE|PSA|PS2|PS1|PS0|--
+     * ------------------------------------------------------
+        WPUEN: Weak Pull-Up Enable bit
+            1 = All weak pull-ups are disabled (except MCLR, if it is enabled)
+            0 = Weak pull-ups are enabled by individual WPUx latch values
+        INTEDG: Interrupt Edge Select bit
+            1 = Interrupt on rising edge of INT pin
+            0 = Interrupt on falling edge of INT pin
+        TMR0CS: Timer0 Clock Source Select bit
+            1 = Transition on T0CKI pin
+            0 = Internal instruction cycle clock (FOSC/4)
+        TMR0SE: Timer0 Source Edge Select bit
+            1 = Increment on high-to-low transition on T0CKI pin
+            0 = Increment on low-to-high transition on T0CKI pin
+        PSA: Prescaler Assignment bit
+            1 = Prescaler is not assigned to the Timer0 module
+            0 = Prescaler is assigned to the Timer0 module
+        PS<2:0>: Prescaler Rate Select bits
+            000     1 : 2
+            001     1 : 4
+            010     1 : 8
+            011     1 : 16
+            100     1 : 32
+            101     1 : 64
+            110     1 : 128
+            111     1 : 256
+    
+     * A prescaler is a circuit that reduces the frequency of a clock using integer division. 
+     *  The prescaler can be set anywhere from 1:2 to 1:256 for Timer 0 (8 bit prescaler, shared with WDT).
+     *  The clock which is slowing is NOT the system clock Fosc (250 kHz as in here). 
      *  It's the system's instruction clock Fcy, which is always Fosc/4.
      *  The timer expires when the TMR0 register rolls over. 
-     *  The TMR0 register is an 8bit register, therefore it will roll over after 256 counts.
+     *  The TMR0 register is an 8 bit register, therefore it will roll over after 256 counts.
      *  Rollover Frequency = Fosc / (4 * prescaler * 256)
-     *  In following case it would be 15.2588Hz or 0.0655 seconds per rollover.
+     *  In following case it would be 0.95 Hz or 1.04 seconds per rollover.
     */
 		OPTION_REGbits.PSA = 0; 	// Prescaler assigned to Timer 0
 		OPTION_REGbits.PS = 0b111;  // Set the prescaler to 1:256
 		OPTION_REGbits.T0CS = 0;    // Use the instruction clock (Fcy/4) as the timer clock. 
-									//   Other option is an external oscillator or clock on the T0CKI pin.
 }
 
 void main(void) 
