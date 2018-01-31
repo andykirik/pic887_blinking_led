@@ -14,7 +14,8 @@
  *  RD1          			LED
  *  RD2          			LED
  *  RD3          			LED
-*   RB0 (SW1)               BUTTON    
+ * 
+ *  RB0 (SW1)               BUTTON    
  *
  */
 

@@ -14,6 +14,10 @@
  *  RD1          			LED
  *  RD2          			LED
  *  RD3          			LED
+ *  RD4          			LED
+ *  RD5          			LED
+ *  RD6          			LED
+ *  RD7          			LED
  *
  */
 

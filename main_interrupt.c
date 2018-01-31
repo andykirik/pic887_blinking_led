@@ -5,14 +5,18 @@
  * Created on January 24, 2016, 12:12 PM
  * 
  * Interrupt
+ * Use External Interrupt.
+ * On PIC16F887 external interrupt is pin RB0/AN12/INT
+ * LED 7 blinks once a second
+ * LED 3 changes its state on button press
  * 
  *  Board connection (PICKit 44-Pin Demo Board; PIC16F887):
  *   PIN                	Module                         				  
  * -------------------------------------------                        
- *  RD0          			LED
- *  RD1          			LED
- *  RD2          			LED
  *  RD3          			LED
+ *  RD7          			LED
+ * 
+ *  RB0/AN12/INT (SW1)      BUTTON    
  * 
  */
 
@@ -89,11 +93,19 @@ void system_init()
      * ---------------------------------------------------
      * INTEDG   - interrupt edge select bit
      * 
+     * In order to initialize the RB0/AN12/INT interrupt, the following operations must take place:
+     *   1. Port B, pin 0 (RB0), must be initialized as Input.
+     *   2. The interrupt source must be set to take place either on the falling or the rising edge of
+     *      the signal using INTEDG bit of OPTION_REG.
+     *   3. The External Interrupt flag (INTF in the INTCON Register) must be cleared.
+     *   4. The External Interrupt on RB0/AN12/INT must be enabled by setting the INTE bit in the INTCON
+     *      Register.
+     *   5. Global interrupts must be enabled by setting the GIE bit in the INTCON Register.
     */
         OPTION_REGbits.INTEDG = 1;  // Interrupt on the rising edge
-        INTCONbits.INTF = 0;        // Reset the external interrupt flag
-		INTCONbits.INTE = 1;        // Enable external interrupt
-		INTCONbits.GIE = 1;         // Set the Global Interrupt Enable
+        INTCONbits.INTF = 0;        // Reset the External Interrupt flag
+		INTCONbits.INTE = 1;        // Set the External Interrupt Enabled
+		INTCONbits.GIE = 1;         // Set the Global Interrupt Enabled
 }
 
 /* 
@@ -105,9 +117,10 @@ void interrupt isr()
 {
     if(INTCONbits.INTF == 1)
     {
-        INTCONbits.INTF = 0;    // Clear the Timer 0 interrupt flag
-
         PORTDbits.RD3 = ~PORTDbits.RD3; // Toggle the LED
+        __delay_ms(200);                // Key debounce time
+        
+        INTCONbits.INTF = 0;            // Clear the External Interrupt flag
     }
     //else if(...)
 }
