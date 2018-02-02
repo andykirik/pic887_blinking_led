@@ -57,15 +57,17 @@ void system_init()
     
 	// I/O
 		// ANSELx registers
-			ANSEL = 0x00;         // Set PORT ANS0 to ANS7 as Digital I/O
+			ANSELH = 0x00;        // Set PORT ANS0 to ANS7 as Digital I/O
 			ANSELH = 0x00;        // Set PORT ANS8 to ANS11 as Digital I/O
+            ANSELbits.ANS0 = 0x01;// Set RA0/AN0 as Analog I/O
 	  
 		// TRISx registers (This register specifies the data direction of each pin)
-			TRISA = 0x00;         // Set All on PORTB as Output    
+			TRISA = 0x01;         // Set All on PORTB as Output, and AN0 as Input    
 			TRISB = 0x00;         // Set All on PORTB as Output    
 			TRISC = 0x00;         // Set All on PORTC as Output    
             TRISD = 0x00;         // Set All on PORTD as Output   
-            TRISE = 0x00;         // Set All on PORTE as Output   
+            TRISE = 0x00;         // Set All on PORTE as Output  
+            TRISAbits.TRISA0 = 1; // Set RA0/AN0 as Input
 		
 		// PORT registers
 			PORTA = 0x00;         // Set PORTA all 0
@@ -78,19 +80,14 @@ void system_init()
         ADCON1bits.ADFM = 0;   		// ADC result is left justified
         ADCON1bits.VCFG0 = 0;    	// Vref uses Vdd as reference
         ADCON1bits.VCFG1 = 0;       // use VCC as reference gnd
-        ADCON0bits.ADCS0 = 0;       // Fosc/8 is the conversion clock
+        ADCON0bits.ADCS = 0b10;       // Fosc / 32 is the conversion clock
 									//   This is selected because the conversion
 									//   clock period (Tad) must be greater than 1.5us.
 									//   With a Fosc of 4MHz, Fosc/8 results in a Tad
 									//   of 2us.
         ADCON0bits.CHS = PIN_A0;	// Select analog input - AN0
         ADCON0bits.ADON = 1;    	// Turn on the ADC
-        
-    // configure RA0 as analog AN0
-    TRISA = 1;
-    ANSELbits.ANS0 = 1; 
-    ADCON0bits.ADCS = 0b10; // clock / 32
-        
+                
     // PWM setup
     // The PWM mode generates a Pulse-Width Modulated signal on the CCP1 pin. 
     // The duty cycle, period and resolution are determined by the following registers:
@@ -99,6 +96,17 @@ void system_init()
     // PWM output on the CCP1 pin. Since the CCP1 pin is multiplexed with the PORT data latch, 
     // the TRIS for that pin must be cleared to enable the CCP1 pin output driver.
     // The PWM period is specified by the PR2 register of Timer2.
+    // In PWM mode, the CCP1 pin can output a 10-bit resolution periodic digital waveform 
+    // with programmable period and duty cycle. 
+    // The duty cycle of the waveform to be generated is a 10-bit value of which 
+    // the upper eight bits are stored in the CCPR1L register, 
+    // whereas the lowest two bits are stored in bit 5 and bit 4 of the CCP1CON register.
+    // The PIC PWM output ports P1A (RC5), P1B (RC4), P1C (RC3) and P1D (RC2).
+    // The PWM output behavior is controlled by the CCP1CON, PWM1CON and PSTRCON registers
+    // All the TRIS register for each of the PWM output ports: P1A, P1B, P1C and P1D should be set to the output mode.
+    // PWM period = (PR2 + 1) x 4 x Tosc x (TMR2 prescale value) seconds
+    // PWM frequency = 1 / PWM Period Hz
+    // PWM width = (CCPR1L:CCP1CON<5:4>) x Tosc x (TMR2 prescale value) seconds.
     /* 
 	 * -------------------CCP1CON----------------------------------
      * Bit#:  ---7----6----5------4-----3------2------1------0-----
@@ -117,26 +125,30 @@ void system_init()
      * STRC     - Steering Enable bit C
      * STRB     - Steering Enable bit B
      * STRA     - Steering Enable bit A
+     * 
+     * The following steps configure the CCP module for PWM operation:
+     *   1. Establish the PWM period by writing to the PR2 register.
+     *   2. Establish the PWM duty cycle by writing to the DCxB9:DCxB0 bits.
+     *   3. Make the CCPx pin an output by clearing the appropriate TRIS bit.
+     *   4. Establish the TMR2 prescale value and enable Timer2 by writing to T2CON.
+     *   5. Configure the CCP module for PWM operation.
     */
-        // Set the PWM period by loading the PR2 register.
-        PR2 = 0x40;                     // this combined with a TMR2 prescale of 16 gives us a PWM frequency of just under 2kHz
-        //PR2 = 0x65;                   // Frequency: 4.90 kHz
-        //PSTRCON = 0b00000100;         // Enable Pulse Steering on P1C (RC3)
-        PSTRCON = 0b00011110;           // set up pulse steering mode on port D pins
+    // Set the PWM period by loading the PR2 register.
+        PR2 = 0x40;                     // Frequency: 2 kHz
+        // PWM period = (64 + 1) x 4 x (1 / 8000000) x 16 = 0.00052 second
+        // PWM frequency = 1 / PWM period = 1 / 0.00052 = 1923.07 Hz ~ 2.0 kHz
+        PSTRCON = 0b00011110;           // Enable Pulse Steering on port D pins
         
     // Configure the CCP module for the PWM mode by loading the CCPxCON register with the appropriate values.
-        //CCP1CON = 0b00001100;         // Single PWM mode; P1A, P1C active-high; P1B, P1D active-high
+        //CCP1CON = 0b00001100;     // Single PWM mode; P1A, P1C active-high; P1B, P1D active-high
         CCP1CONbits.P1M = 0b00;         // Single output mode
+        CCP1CONbits.DC1B = 0x00;        // Set the PWM duty cycle by loading the CCPRxL register and DCxB bits of the CCPxCON register.
         CCP1CONbits.CCP1M = 0b1100;     // ECCP Mode PWM P1A-D active high
-        CCP1CONbits.DC1B = 0x80 & 0b11; // Set the PWM duty cycle by loading the CCPRxL register and DCxB bits of the CCPxCON register.
-        CCPR1L = 0x80 >> 2;             // 0x80 is approx 50% duty cycle... I think!
-        //CCPR1L = 0;                   // Start with zero Duty Cycle
+        CCPR1L = 0x80 >> 2;             // Start with 50% duty cycle
  
     // Configure and start Timer2:
-        //T2CON = 0b00000101;         // Postscale: 1:1, Timer2=On, Prescale = 1:4
-        //TMR2 = 0;                   // Start with zero Counter
         PIR1bits.TMR2IF = 0;            // Clear the TMR2IF interrupt flag bit of the PIR1 register.
-        T2CONbits.T2CKPS = 0b10;/*16*/  //=16  Set the Timer2 prescale value by loading the T2CKPS bits of the T2CON register.
+        T2CONbits.T2CKPS = 0b10;        //=16  Set the Timer2 prescale value by loading the T2CKPS bits of the T2CON register.
         T2CONbits.TMR2ON = 1;           // Enable Timer2 by setting the TMR2ON bit of the T2CON register.
  
     // Enable PWM output after a new PWM cycle has started:
@@ -145,28 +157,28 @@ void system_init()
     PORTD = 0b00010000;// switch on one of the adjacent LEDs for brightness comparison
 }
 
-uint16_t ADC_GetConversion()
+uint8_t ADC_GetConversion()
 {
     __delay_us(ACQ_US_DELAY);					// Acquisition time delay
     ADCON0bits.GO_nDONE = 1;					// Start the conversion
     while (ADCON0bits.GO_nDONE);				// Wait for the conversion to finish
-    //return ((uint16_t)((ADRESH << 8) + ADRESL));// Conversion finished, return the result
     return ADRESH;                              // read an 8-bit value
 }
 
-
-void main()
+void main(void) 
 {
-    OSCCON=0x70;          // Select 8 Mhz internal clock
-    
-    system_init(); 
+    system_init();
   
     while(1)
     {
-        uint16_t duty = ADC_GetConversion();
- 
+        uint8_t adcResult = ADC_GetConversion(); //Start ADC conversion
+
         // set the new duty cycle
-        CCP1CONbits.DC1B = duty & 0b11; // LSB
-        CCPR1L = duty >> 2;             // MSB
+        CCPR1H = adcResult & 0b11;           // LSB or like this: CCP1CONbits.DC1B = adcResult & 0b11;
+        CCPR1L = adcResult >> 2;             // MSB
+        
+        __delay_ms(50);                      // sleep 50 milliseconds
     }
+    
+  return;
 }
