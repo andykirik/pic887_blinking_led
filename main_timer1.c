@@ -4,8 +4,7 @@
  *
  * Created on January 24, 2016, 12:12 PM
  * 
- * Using Timer 0
- * (Note, Watch Dog Timer should be disabled)
+ * Using Timer 1
  * 
  *  Board connection (PICKit 44-Pin Demo Board; PIC16F887):
  *   PIN                	Module                         				  
@@ -36,9 +35,7 @@
 
 void system_init()
 {
-    //OSCCON=0b1110000;          // Select 8 MHz internal clock
     OSCCON=0b0100000;          // Select 250 kHz internal clock
-    //OSCCON=0b0000000;          // Select 31 kHz internal clock
     
 	// I/O	
 		// ANSELx registers
@@ -59,50 +56,32 @@ void system_init()
             PORTD = 0x00;         // Set PORTD all 0
             PORTE = 0x00;         // Set PORTE all 0
         
-	// Timer Setup - Timer 0
-    /* 
-	 * -------------------OPTION_REG-------------------------
-     * Bit#:  ---7------6------5------4-----3---2---1---0----
-     * :      -|WPUEN|INTEDG|TMR0CS|TMR0SE|PSA|PS2|PS1|PS0|--
-     * ------------------------------------------------------
-        WPUEN: Weak Pull-Up Enable bit
-            1 = All weak pull-ups are disabled (except MCLR, if it is enabled)
-            0 = Weak pull-ups are enabled by individual WPUx latch values
-        INTEDG: Interrupt Edge Select bit
-            1 = Interrupt on rising edge of INT pin
-            0 = Interrupt on falling edge of INT pin
-        TMR0CS: Timer0 Clock Source Select bit
-            1 = Transition on T0CKI pin
-            0 = Internal instruction cycle clock (FOSC/4)
-        TMR0SE: Timer0 Source Edge Select bit
-            1 = Increment on high-to-low transition on T0CKI pin
-            0 = Increment on low-to-high transition on T0CKI pin
-        PSA: Prescaler Assignment bit
-            1 = Prescaler is not assigned to the Timer0 module
-            0 = Prescaler is assigned to the Timer0 module
-        PS<2:0>: Prescaler Rate Select bits
-            000     1 : 2
-            001     1 : 4
-            010     1 : 8
-            011     1 : 16
-            100     1 : 32
-            101     1 : 64
-            110     1 : 128
-            111     1 : 256
+	// Timer Setup - Timer 1
+    /* The Timer1 module is a 16-bit timer/counter.
+     * -------------------T1CON---------------------------------------------
+     * Bit#:  ----7------6-------5-------4-------3-------2------1-------0---
+     * ANS:   -|T1GINV|TMR1GE|T1CKPS1|T1CKPS0|T1OSCEN|T1SYNC|TMR1CS|TMR1ON|-
+     * ---------------------------------------------------------------------
+     * T1GINV: Timer1 Gate Invert bit
+     * TMR1GE: Timer1 Gate Enable bit
+     * T1CKPS<1:0>: Timer1 Input Clock Prescale Select bits
+     * T1OSCEN: LP Oscillator Enable Control bit
+     * T1SYNC: Timer1 External Clock Input Synchronization Control bit
+     * TMR1CS: Timer1 Clock Source Select bit
+     * TMR1ON: Timer1 On bit
     
      * A prescaler is a circuit that reduces the frequency of a clock using integer division. 
-     *  The prescaler can be set anywhere from 1:2 to 1:256 for Timer 0.
+     *  The prescaler can be set anywhere from 1:1 to 1:8 for Timer 1.
      *  The clock we are slowing down is NOT the system clock Fosc (250 kHz as in here). 
      *  It's the system's instruction clock Fcy, which is always Fosc/4.
-     *  The timer expires when the TMR0 register rolls over. 
-     *  The TMR0 register is an 8 bit register, therefore it will roll over after 256 counts.
-     *  Rollover Frequency = Fosc / (4 * prescaler * 256)
+     *  The timer expires when the TMR2 register rolls over. 
+     *  The TMR1 register is an 16 bit register, therefore it will roll over after 65535 counts.
+     *  16-bit timer/counter register pair (TMR1H:TMR1L)
+     *  Rollover Frequency = Fosc / (4 * prescaler * 65535)
      *  In following case it would be 0.95 Hz or 1.04 seconds per rollover.
     */
-		OPTION_REGbits.PSA = 0; 	// Prescaler assigned to Timer 0
-		OPTION_REGbits.PS = 0b111;  // Set the prescaler to 1:256
-		OPTION_REGbits.T0CS = 0;    // Use the instruction clock (Fcy/4) as the timer clock. 
-									//   Other option is an external oscillator or clock on the T0CKI pin.
+		TMR1 = 0;                   // Start with zero Counter
+        T1CON = 0b00001001;         // Internal Clock (Fosc/4), Prescaler: 1:1, Timer1=On, 
 }
 
 void main(void) 
@@ -111,13 +90,12 @@ void main(void)
     
     while(1)
     {        
-        while(INTCONbits.T0IF == 0); // Wait for the interrupt to occur. This happens when the TMR0 register rolls over.
+        while(PIR1bits.TMR1IF == 0){} // Wait until Timer 1 overflows(TMR1IF bit of the PIR1 register is set).
 
         PORTDbits.RD0 = ~PORTDbits.RD0; // Toggle the LED
 		
-        INTCONbits.T0IF = 0;        // Clear the Timer 0 interrupt flag
-        TMR0 = 0;                   // Load a value of 0 into the timer
-                                    // This is not necessary since the register will be at 0 anyway after rolling over
+        PIR1bits.TMR1IF = 0;        // Clear the Timer 1 interrupt flag
+        TMR1 = 0;                   // Load a value of 1 into the timer
 
     }
     
