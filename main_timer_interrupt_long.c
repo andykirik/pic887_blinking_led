@@ -43,12 +43,23 @@ begins with a single underscore.
 
 #include <xc.h>
 
-#define TIMER_RESET_VALUE 0
+#define TIMER_RESET_VALUE 240 // To set up the timer for a period of 1 ms (timerPeriod)
+                            // Calculated by the formula:
+                            // TMR0 = 256 - ((timerPeriod * Fosc) / (4 * prescaler)) + x
+                            // TMR1 = 65536 - ((timerPeriod * Fosc) / (4 * prescaler)) + x
+
+                            // In following case,   timerPeriod = 0.001s
+                            //                      Fosc = 250,000
+                            //                      prescaler = 4
+                            //                      x = 0 because prescaler is > 2
+
+                            // TMR0 = 256 - (0.001 * 250000) / (4 * 4) = 240
+
+int delayTime = 0;          // store the time that has elapsed
 
 void system_init()
 {
-    //OSCCON=0x70;          // Select 8 Mhz internal clock
-    OSCCON=0b0100000;       // Select 250 kHz internal clock
+    OSCCONbits.IRCF = 0b010;       // Select 250 kHz internal clock
     
 	// I/O	
 		// ANSELx registers
@@ -132,7 +143,11 @@ void interrupt isr()
     INTCONbits.T0IF = 0;    // Clear the Timer 0 interrupt flag
     TMR0 = TIMER_RESET_VALUE;   // Load the starting value back into the timer
     
-    PORTDbits.RD3 = ~PORTDbits.RD3; // Toggle the LED
+    if(++delayTime >= 5000) // 5 seconds has elapsed
+    {
+        delayTime = 0;
+        PORTDbits.RD3 = ~PORTDbits.RD3; // Toggle the LED
+    }
 }
 
 void main(void) 
